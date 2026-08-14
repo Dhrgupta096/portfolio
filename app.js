@@ -387,6 +387,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Project Specifications Modal Setup
     // ----------------------------------------------------------------------
     const specMetadata = {
+        'ares-v-details': {
+            title: 'Ares-V 3D Staged Rocket Simulator',
+            category: 'Math & Trajectory',
+            image: 'assets/project_mlops.png',
+            content: `
+                <p>An interactive 3D physics-based rocket launch configurator and staged flight simulator built with WebGL/Three.js. Features real-time multi-stage propulsion physics, atmospheric drag gradients, and orbital insertion trajectory calculus.</p>
+                <h4>Algorithmic Spec</h4>
+                <ul>
+                    <li>Integrated real-time variable-mass rocket equation equations (\(\\Delta v = I_{sp} g_0 \\ln(m_0/m_f)\)).</li>
+                    <li>Modeled dynamic atmospheric density decay (\(\\rho(h) = \\rho_0 e^{-h/H}\)) and peak aerodynamic dynamic pressure (\(Q_{max}\)).</li>
+                    <li>Calculated instantaneous Thrust-to-Weight ratios (TWR), staging separation timings, and Keplerian orbital transfer paths.</li>
+                </ul>
+                <h4>Project Parameters</h4>
+                <p><strong>Stack:</strong> WebGL, Three.js, JavaScript (ES6+), GLSL Shader Effects</p>
+                <p><strong>Physics Core:</strong> Tsiolkovsky rocket equation, Runge-Kutta numerical orbit propagation</p>
+            `
+        },
         'trajectory-details': {
             title: 'Rocket Trajectory Solver',
             category: 'Math & Trajectory',
@@ -426,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
             category: 'CAD Drafts',
             image: 'assets/project_vision.png',
             content: `
-                <p>A parabolic aerodynamic nose cone structural component draft modeled for the university student rocketry design team.</p>
+                <p>A parabolic aerodynamic nose cone structural component draft modeled for collegiate rocketry design teams.</p>
                 <h4>Algorithmic Spec</h4>
                 <ul>
                     <li>Drafted a Haack-series parabolic outline to minimize drag variables.</li>
