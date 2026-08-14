@@ -5,6 +5,7 @@
 
 [![Live Portfolio](https://img.shields.io/badge/Live_Portfolio-dhrgupta096.github.io%2Fportfolio-005bc5?style=for-the-badge&logo=google-chrome&logoColor=white)](https://dhrgupta096.github.io/portfolio/)
 [![GitHub](https://img.shields.io/badge/GitHub-dhrgupta096-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/dhrgupta096)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Dhruv_Gupta-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/dhruv-gupta-3b6589429)
 
 ---
 
@@ -73,6 +74,7 @@ open http://localhost:5174
 - **Author**: Dhruv Gupta
 - **Email**: [dhr.gupta096@gmail.com](mailto:dhr.gupta096@gmail.com)
 - **GitHub**: [@dhrgupta096](https://github.com/dhrgupta096)
+- **LinkedIn**: [dhruv-gupta-3b6589429](https://www.linkedin.com/in/dhruv-gupta-3b6589429)
 - **Institution**: Dayananda Sagar University (DSU), Aerospace Engineering
 
 ---
