@@ -514,55 +514,108 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    window.handleBlueprintSubmit = function(e) {
+    window.handleBlueprintSubmit = async function(e) {
         e.preventDefault();
 
-        const nameVal = document.getElementById('form-name').value;
-        const emailVal = document.getElementById('form-email').value;
-        const messageVal = document.getElementById('form-message').value;
+        const nameVal = document.getElementById('form-name').value.trim();
+        const emailVal = document.getElementById('form-email').value.trim();
+        const messageVal = document.getElementById('form-message').value.trim();
+        const submitBtn = document.querySelector('.blueprint-btn-submit');
+
+        if (!nameVal || !emailVal || !messageVal) return;
 
         blueprintLog.classList.add('active');
         logLoading.style.display = 'block';
         logSuccess.style.display = 'none';
-
-        let lineIdx = 0;
-        const submitLogs = [
-            `[COMPILE]: coordinate_telemetry_payload.bin`,
-            `[ENCRYPT]: RSA-4096 stream uplink socket binding...`,
-            `[CONNECT]: packet transmission initiated`,
-            `[ACKNOWLEDGE]: target node acknowledged transmission.`
-        ];
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.7';
+            submitBtn.textContent = 'TRANSMITTING PAYLOAD...';
+        }
 
         logLoading.innerHTML = '';
+        const addLog = (msg, isSpecial = false) => {
+            const p = document.createElement('div');
+            p.className = 'blueprint-log-line ' + (isSpecial ? 'loading' : '');
+            p.textContent = msg;
+            logLoading.appendChild(p);
+        };
 
-        function printLogs() {
-            if (lineIdx < submitLogs.length) {
-                const p = document.createElement('div');
-                p.className = 'blueprint-log-line loading';
-                p.textContent = submitLogs[lineIdx];
-                logLoading.appendChild(p);
-                lineIdx++;
-                setTimeout(printLogs, 250 + Math.random() * 120);
+        addLog(`[COMPILE]: Packaging message payload from ${nameVal}...`);
+        addLog(`[ENCRYPT]: Routing secure uplink to destination node: dhr.gupta096@gmail.com`);
+
+        try {
+            const response = await fetch('https://formsubmit.co/ajax/dhr.gupta096@gmail.com', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: nameVal,
+                    email: emailVal,
+                    message: messageVal,
+                    _subject: `🚀 [DHRUV.AERO Transmission] From ${nameVal}`,
+                    _template: 'table',
+                    _captcha: 'false'
+                })
+            });
+
+            if (response.ok) {
+                addLog(`[CONNECT]: Uplink socket connected successfully.`);
+                addLog(`[DELIVERY]: 200 OK — Packet transmitted directly to Dhruv Gupta's mailbox.`);
+                
+                setTimeout(() => {
+                    logLoading.style.display = 'none';
+                    logSuccess.style.display = 'block';
+                    logSuccess.innerHTML = `
+<div style="padding: 0.75rem 0; border-left: 2px solid var(--blueprint-blue); padding-left: 1rem; margin-top: 0.5rem;">
+    <div style="color: var(--blueprint-blue); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem;">
+        ✓ [TRANSMISSION CONFIRMED — EMAIL DISPATCHED]
+    </div>
+    <div style="font-size: 0.85rem; color: var(--pencil-graphite); line-height: 1.5;">
+        Thank you, <strong>${nameVal}</strong>! Your message has been sent directly to <code>dhr.gupta096@gmail.com</code>. Dhruv will review your message and reply via <code>${emailVal}</code>.
+    </div>
+</div>
+                    `;
+                    blueprintForm.reset();
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.style.opacity = '1';
+                        submitBtn.textContent = 'COMPILE & TRANSMIT';
+                    }
+                }, 500);
             } else {
+                throw new Error('Server returned status ' + response.status);
+            }
+        } catch (err) {
+            console.warn('Direct HTTP submit fallback triggered:', err);
+            addLog(`[FALLBACK]: Initializing native mail client uplink...`, true);
+            
+            setTimeout(() => {
                 logLoading.style.display = 'none';
                 logSuccess.style.display = 'block';
                 logSuccess.innerHTML = `
-<span style="color: var(--blueprint-blue); font-weight: 700;">[TRANSMISSION APPROVED]</span>
-{
-  "status": "APPROVED",
-  "routing_node": "DHRUV_AERO_v1.0",
-  "log": {
-    "sender": "${nameVal}",
-    "channel": "${emailVal}",
-    "payload_length": ${messageVal.length}
-  }
-}
+<div style="padding: 0.75rem 0; border-left: 2px solid var(--blueprint-blue); padding-left: 1rem; margin-top: 0.5rem;">
+    <div style="color: var(--blueprint-blue); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem;">
+        ✓ [NATIVE MAIL UPLINK PREPARED]
+    </div>
+    <div style="font-size: 0.85rem; color: var(--pencil-graphite); line-height: 1.5; margin-bottom: 0.75rem;">
+        Opening your default mail client to dispatch directly to <strong>dhr.gupta096@gmail.com</strong>...
+    </div>
+    <a href="mailto:dhr.gupta096@gmail.com?subject=${encodeURIComponent('🚀 Transmission from ' + nameVal)}&body=${encodeURIComponent('From: ' + nameVal + ' (' + emailVal + ')\n\n' + messageVal)}" class="btn btn-primary" style="display: inline-block; padding: 0.4rem 1rem; font-size: 0.8rem;">
+        <i class="fa-solid fa-paper-plane"></i> Launch Email App
+    </a>
+</div>
                 `;
-                blueprintForm.reset();
-            }
+                window.location.href = `mailto:dhr.gupta096@gmail.com?subject=${encodeURIComponent('🚀 Transmission from ' + nameVal)}&body=${encodeURIComponent('From: ' + nameVal + ' (' + emailVal + ')\n\n' + messageVal)}`;
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.textContent = 'COMPILE & TRANSMIT';
+                }
+            }, 500);
         }
-
-        printLogs();
     };
 
     // ----------------------------------------------------------------------
