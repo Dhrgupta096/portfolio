@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             projectCards.forEach(card => {
                 const category = card.getAttribute('data-category');
                 
-                if (filterVal === 'all' || category === filterVal) {
+                if (filterVal === 'all' || (category && category.includes(filterVal))) {
                     card.style.display = 'block';
                     setTimeout(() => { card.style.opacity = '1'; card.style.transform = 'scale(1)'; }, 20);
                 } else {
@@ -387,6 +387,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Project Specifications Modal Setup
     // ----------------------------------------------------------------------
     const specMetadata = {
+        'vyom-details': {
+            title: 'VYOM — Real-Time 3D Space Debris Tracking & Threat Radar',
+            category: 'ISRO Hackathon 2nd Prize Winner • Dayananda Sagar University',
+            image: 'assets/project_vyom.jpg',
+            content: `
+                <div style="background: rgba(255, 153, 51, 0.1); border: 1px solid rgba(255, 153, 51, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 1rem;">
+                    <strong style="color: #e65100;">🏆 2nd Prize Winner — Bharatiya Antariksh Hackathon (BAH)</strong>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--pencil-grey);">Awarded by the Indian Space Research Organisation (ISRO). Built representing Dayananda Sagar University (DSU).</p>
+                </div>
+                <p><strong>VYOM</strong> is a web-based Space Situational Awareness (SSA) 3D radar platform tracking cataloged debris objects (&gt;10 cm) and micro-debris swarms across LEO, MEO, GEO, and Graveyard corridors to safeguard space assets.</p>
+                <h4>Core Mission Capabilities</h4>
+                <ul>
+                    <li><strong>Photorealistic NASA 4K Blue Marble Earth Globe:</strong> WebGL Rayleigh scattering atmospheric shader, 23.44° real axial tilt, and diurnal rotation.</li>
+                    <li><strong>Keep-Out Volume Shielding:</strong> Real-time 3D spherical protective zones for human habitats (ISS & Tiangong) with automatic DEFCON 2 conjunction threat warnings.</li>
+                    <li><strong>20-Year Orbital Decay Trajectory Engine:</strong> Thermospheric atmospheric drag decay modeling to forecast satellite re-entry epochs.</li>
+                    <li><strong>ISRO Space Asset Telemetry:</strong> Priority asset tagging for Indian satellites (Cartosat-3, Oceansat-3, RISAT-1A, NavIC IRNSS, PSLV-C37).</li>
+                </ul>
+                <h4>Engineering Parameters</h4>
+                <p><strong>Graphics & Scene:</strong> Three.js (WebGL), OrbitControls, Shader Material</p>
+                <p><strong>Orbital Physics:</strong> Keplerian Inclination & RAAN plane propagation, SGP4 / TLE ingestion</p>
+                <p><strong>Data Provenance:</strong> CelesTrak, Space-Track, ESA DISCOS, NASA ORDEM 3.2</p>
+            `
+        },
         'ares-v-details': {
             title: 'Ares-V 3D Staged Rocket Simulator',
             category: 'Math & Trajectory',
@@ -909,25 +932,55 @@ document.addEventListener('DOMContentLoaded', () => {
         let cD = params.cdZero + (cL * cL) / (Math.PI * 1.3);
 
         const isStalled = angleOfAttack > params.stallAoA || angleOfAttack < -params.stallAoA;
+        const stallBadge = document.getElementById('stall-warning-badge');
+        const hudLd = document.getElementById('hud-ld-ratio');
+        const hudFlow = document.getElementById('hud-boundary-flow');
+        const hudQ = document.getElementById('hud-dyn-q');
+        const hudRe = document.getElementById('hud-reynolds');
+
         if (isStalled) {
             cD += 0.085;
             
             tunnelStatus.textContent = 'WARNING: AIRFLOW STALL';
             tunnelStatus.className = 'canvas-live-badge stall';
+            if (stallBadge) stallBadge.style.display = 'inline-flex';
             
             valCL.className = 'readout-val warning';
             valCD.className = 'readout-val warning';
+            if (hudFlow) {
+                hudFlow.textContent = 'TURBULENT SEPARATION';
+                hudFlow.style.color = 'var(--stall-red)';
+            }
         } else {
             tunnelStatus.textContent = cL >= 0 ? 'LIFT GENERATED' : 'DOWNFORCE GENERATED';
             tunnelStatus.className = 'canvas-live-badge';
+            if (stallBadge) stallBadge.style.display = 'none';
             
             valCL.className = 'readout-val';
             valCD.className = 'readout-val';
+            if (hudFlow) {
+                hudFlow.textContent = 'LAMINAR FLOW';
+                hudFlow.style.color = 'var(--aero-cyan)';
+            }
         }
 
         // Update readouts values
         valCL.textContent = cL.toFixed(2);
         valCD.textContent = cD.toFixed(3);
+
+        // Update HUD metrics
+        if (hudLd) {
+            const ldRatio = cD > 0 ? (cL / cD).toFixed(1) : '0.0';
+            hudLd.textContent = `${ldRatio} L/D`;
+        }
+        if (hudQ) {
+            const dynQ = Math.round(0.5 * 1.225 * windVelocity * windVelocity);
+            hudQ.textContent = `${dynQ} Pa`;
+        }
+        if (hudRe) {
+            const reynoldsVal = ((1.225 * windVelocity * 0.13) / 1.81e-5 / 100000).toFixed(2);
+            hudRe.innerHTML = `${reynoldsVal} &times; 10<sup>5</sup>`;
+        }
 
         // Draw background mesh grid lines inside tunnel visualizer
         tunnelCtx.strokeStyle = 'rgba(0, 91, 197, 0.015)';

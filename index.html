@@ -84,9 +84,10 @@
         <section id="home" class="hero">
             <div class="hero-grid">
                 <div class="hero-info">
-                    <div class="hero-tag">
+                    <div class="hero-tag" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                         <span></span>
                         <span>STATUS: AEROSPACE ENGINEERING // DSU DEPT. OF AEROSPACE</span>
+                        <span class="telemetry-chip cyan"><i class="fa-solid fa-satellite-dish"></i> ACTIVE TELEMETRY</span>
                     </div>
                     <h1 class="hero-name">Dhruv Gupta</h1>
                     <div class="hero-title">
@@ -120,22 +121,43 @@
             
             <div class="about-grid">
                 <!-- Card 1 -->
-                <div class="blueprint-card">
-                    <span class="card-num">[ NODE_01 ]</span>
+                <div class="bento-card">
+                    <div class="hud-corner hud-tl"></div>
+                    <div class="hud-corner hud-tr"></div>
+                    <div class="hud-corner hud-bl"></div>
+                    <div class="hud-corner hud-br"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="card-num" style="margin: 0;">[ NODE_01 ]</span>
+                        <span class="telemetry-chip cyan"><i class="fa-solid fa-wind"></i> FLUID DYNAMICS</span>
+                    </div>
                     <h3 class="card-title">Aerodynamics</h3>
                     <p class="card-desc">Analyzing boundary layer flow, lift dynamics, and vortex configurations. Developing fluid visualizers to plot pressure matrices on cambered airfoil profiles.</p>
                 </div>
                 
                 <!-- Card 2 -->
-                <div class="blueprint-card">
-                    <span class="card-num">[ NODE_02 ]</span>
+                <div class="bento-card">
+                    <div class="hud-corner hud-tl"></div>
+                    <div class="hud-corner hud-tr"></div>
+                    <div class="hud-corner hud-bl"></div>
+                    <div class="hud-corner hud-br"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="card-num" style="margin: 0;">[ NODE_02 ]</span>
+                        <span class="telemetry-chip"><i class="fa-solid fa-rocket"></i> ORBITAL MECHANICS</span>
+                    </div>
                     <h3 class="card-title">Kinetics & Trajectory</h3>
                     <p class="card-desc">Simulating flight equations. Solving ODEs inside Python solvers to chart altitude path vectors, thrust curves, and gravity-drag apogee metrics.</p>
                 </div>
                 
                 <!-- Card 3 -->
-                <div class="blueprint-card">
-                    <span class="card-num">[ NODE_03 ]</span>
+                <div class="bento-card">
+                    <div class="hud-corner hud-tl"></div>
+                    <div class="hud-corner hud-tr"></div>
+                    <div class="hud-corner hud-bl"></div>
+                    <div class="hud-corner hud-br"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span class="card-num" style="margin: 0;">[ NODE_03 ]</span>
+                        <span class="telemetry-chip"><i class="fa-solid fa-compass-drafting"></i> SOLIDWORKS CAD</span>
+                    </div>
                     <h3 class="card-title">CAD & Structures</h3>
                     <p class="card-desc">Modeling structural components inside SolidWorks and AutoCAD. Stress-testing drag matrices on modular nose cones and student rocketry club designs.</p>
                 </div>
@@ -277,12 +299,39 @@
                     <!-- Visual Chamber -->
                     <div class="lab-panel-visuals">
                         <!-- Vector Chamber -->
-                        <div class="visual-canvas-card">
-                            <div class="visual-header">
+                        <div class="visual-canvas-card bento-card">
+                            <div class="hud-corner hud-tl"></div>
+                            <div class="hud-corner hud-tr"></div>
+                            <div class="hud-corner hud-bl"></div>
+                            <div class="hud-corner hud-br"></div>
+                            <div class="visual-header" style="display: flex; justify-content: space-between; align-items: center;">
                                 <span><i class="fa-solid fa-wind"></i> Streamline Vector Chamber</span>
-                                <span class="canvas-live-badge" id="tunnel-status">LIFT GENERATED</span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="telemetry-chip stall-warning" id="stall-warning-badge" style="display: none;"><i class="fa-solid fa-triangle-exclamation"></i> STALL DETECTED (&gt;18°)</span>
+                                    <span class="canvas-live-badge" id="tunnel-status">LIFT GENERATED</span>
+                                </div>
                             </div>
                             <canvas id="wind-tunnel-canvas"></canvas>
+
+                            <!-- Aero Telemetry HUD Bar -->
+                            <div class="aero-hud-bar">
+                                <div class="aero-hud-metric">
+                                    <span class="aero-hud-label">Aerodynamic Ratio</span>
+                                    <span class="aero-hud-value" id="hud-ld-ratio">18.3 L/D</span>
+                                </div>
+                                <div class="aero-hud-metric">
+                                    <span class="aero-hud-label">Boundary Layer</span>
+                                    <span class="aero-hud-value" id="hud-boundary-flow" style="color: var(--aero-cyan);">LAMINAR</span>
+                                </div>
+                                <div class="aero-hud-metric">
+                                    <span class="aero-hud-label">Dyn Pressure (q)</span>
+                                    <span class="aero-hud-value" id="hud-dyn-q">551 Pa</span>
+                                </div>
+                                <div class="aero-hud-metric">
+                                    <span class="aero-hud-label">Reynolds (Re)</span>
+                                    <span class="aero-hud-value" id="hud-reynolds">2.05 &times; 10<sup>5</sup></span>
+                                </div>
+                            </div>
                         </div>
                         <!-- Polar Performance Curve Graph -->
                         <div class="visual-canvas-card">
@@ -409,11 +458,62 @@
             
             <div class="filter-container">
                 <button class="filter-button active" data-filter="all">All Modules</button>
+                <button class="filter-button" data-filter="isro"><i class="fa-solid fa-trophy" style="color: #ff9933;"></i> ISRO Winner</button>
                 <button class="filter-button" data-filter="math">Math & Trajectory</button>
                 <button class="filter-button" data-filter="cad">CAD Drafts</button>
             </div>
             
             <div class="projects-grid">
+
+                <!-- FLAGSHIP ISRO HACKATHON WINNER: VYOM -->
+                <div class="project-card featured" data-category="math isro">
+                    <div class="featured-bento-inner">
+                        <div class="hud-corner hud-tl"></div>
+                        <div class="hud-corner hud-tr"></div>
+                        <div class="hud-corner hud-bl"></div>
+                        <div class="hud-corner hud-br"></div>
+                        
+                        <div class="project-media" style="margin-bottom: 0; position: relative; border-radius: var(--radius-sm); overflow: hidden;">
+                            <img src="assets/project_vyom.jpg" alt="VYOM Real-Time 3D Space Debris Radar" class="project-img" style="height: 100%; min-height: 280px; object-fit: cover;">
+                            <div style="position: absolute; bottom: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap;">
+                                <span class="telemetry-chip cyan"><i class="fa-solid fa-satellite"></i> 37,399 OBJECTS</span>
+                                <span class="telemetry-chip saffron"><i class="fa-solid fa-shield-halved"></i> DEFCON 2 SHIELD</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div class="winner-badge">
+                                    <i class="fa-solid fa-trophy"></i> 2ND PRIZE WINNER &bull; ISRO BHARATIYA ANTARIKSH HACKATHON (BAH)
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <span class="telemetry-chip" style="font-weight: 700;">DAYANANDA SAGAR UNIVERSITY (DSU)</span>
+                                </div>
+                                <h3 class="project-title" style="font-size: 1.65rem; margin-bottom: 0.75rem; color: var(--pencil-graphite);">
+                                    VYOM — 3D Space Debris Radar & Threat Intelligence
+                                </h3>
+                                <p class="project-desc" style="font-size: 0.95rem; line-height: 1.6; color: var(--pencil-grey); margin-bottom: 1.25rem;">
+                                    Won <strong>2nd Prize from ISRO</strong> at the <strong>Bharatiya Antariksh Hackathon (BAH)</strong> representing Dayananda Sagar University (DSU). Built a real-time 3D Space Situational Awareness radar tracking debris swarms, computing Keep-Out Volume station shields for ISS & Tiangong, and modeling 20-year atmospheric decay trajectory predictions using Three.js and Keplerian physics.
+                                </p>
+                                <div class="project-tags" style="margin-bottom: 1.5rem;">
+                                    <span class="project-tag tag-accent"><i class="fa-solid fa-award"></i> ISRO Awarded</span>
+                                    <span class="project-tag">Three.js WebGL</span>
+                                    <span class="project-tag">Space Debris Tracking</span>
+                                    <span class="project-tag">Orbital Mechanics</span>
+                                    <span class="project-tag">LEO / MEO / GEO</span>
+                                </div>
+                            </div>
+
+                            <div class="project-footer" style="padding-top: 1rem; border-top: 1px dashed rgba(0, 91, 197, 0.2);">
+                                <button class="project-link-spec" onclick="openProjectModal('vyom-details')">Read Mission Spec <i class="fa-solid fa-arrow-right"></i></button>
+                                <div class="project-external-links" style="display: flex; gap: 12px; align-items: center;">
+                                    <span class="telemetry-chip saffron"><i class="fa-solid fa-flag"></i> ISRO &bull; DSU</span>
+                                    <a href="https://github.com/dhrgupta096/portfolio" target="_blank" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Project 1 -->
                 <div class="project-card" data-category="math">
@@ -516,6 +616,28 @@
             <div class="timeline">
                 <div class="timeline-track"></div>
                 
+                <!-- Item 0: Hackathon Win -->
+                <div class="timeline-node">
+                    <div class="timeline-checkpoint gold"></div>
+                    <div class="timeline-box-wrapper">
+                        <div class="bento-card" style="border: 1.5px solid rgba(255, 153, 51, 0.4); background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 240, 0.90));">
+                            <div class="hud-corner hud-tl"></div>
+                            <div class="hud-corner hud-tr"></div>
+                            <div class="hud-corner hud-bl"></div>
+                            <div class="hud-corner hud-br"></div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span class="winner-badge" style="margin-bottom: 0;"><i class="fa-solid fa-trophy"></i> 2ND PRIZE WINNER</span>
+                                <span class="telemetry-chip saffron">ISRO &bull; BAH</span>
+                            </div>
+                            <div class="timeline-header-block">
+                                <h3 style="color: var(--pencil-graphite);">Bharatiya Antariksh Hackathon (BAH)</h3>
+                                <h4 style="color: #c2410c;">Indian Space Research Organisation (ISRO) &bull; DSU</h4>
+                            </div>
+                            <p class="timeline-body-text">Represented Dayananda Sagar University (DSU) and secured <strong>2nd Prize</strong> nationally from ISRO in the Bharatiya Antariksh Hackathon (BAH). Designed and implemented <strong>VYOM</strong>, a real-time 3D Space Situational Awareness and orbital collision threat intelligence platform.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Item 1 -->
                 <div class="timeline-node">
                     <div class="timeline-checkpoint"></div>
