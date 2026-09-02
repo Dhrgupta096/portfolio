@@ -1678,6 +1678,10 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     margin-bottom: 1.5rem;
 }
 
+.project-card.featured .project-img {
+    mix-blend-mode: normal !important;
+}
+
 .featured-bento-inner {
     display: grid;
     grid-template-columns: 1.1fr 1fr;

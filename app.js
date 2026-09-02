@@ -1303,21 +1303,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', adjustMergerCanvasSize);
     }
 
-    // Sizing adjustments
-    function adjustTunnelCanvasSize() {
-        if (!tunnelCanvas || !polarCanvas) return;
-        
-        const parentW = tunnelCanvas.parentElement.clientWidth;
-        
-        tunnelCanvas.width = parentW - 24;
-        tunnelCanvas.height = 350;
-        
-        polarCanvas.width = polarCanvas.parentElement.clientWidth - 24;
-        polarCanvas.height = 350;
-        
-        initTunnelParticles();
-    }
-
     // ----------------------------------------------------------------------
     // 10. Custom CAD Drafting Crosshair Cursor Logic
     // ----------------------------------------------------------------------
