@@ -19,7 +19,15 @@ Every module is an active simulation powered by real physics equations and custo
 
 ## ⚡ Interactive Modules
 
-### 1. 🛩️ Real-Time NACA Airfoil Wind Tunnel
+### 🏆 1. 📡 VYOM — Real-Time 3D Space Debris Radar & Threat Intelligence
+- **Award**: **2nd Prize Winner** in the **Bharatiya Antariksh Hackathon (BAH)** awarded by the **Indian Space Research Organisation (ISRO)** representing **Dayananda Sagar University (DSU)**.
+- **Simulation Capabilities**:
+  - **Photorealistic NASA 4K Blue Marble Earth Globe**: WebGL Rayleigh scattering atmospheric shader, 23.44° real axial tilt, and diurnal rotation.
+  - **Keep-Out Volume Shielding**: Real-time 3D spherical protective zones for human space stations (**ISS** & **Tiangong**) with automatic DEFCON 2 conjunction threat warnings.
+  - **20-Year Orbital Decay Trajectory Prediction (2026–2046)**: Thermospheric atmospheric drag decay modeling to forecast satellite re-entry epochs.
+  - **ISRO Priority Asset Telemetry**: Highlighting Indian space assets (*Cartosat-3, Oceansat-3, RISAT-1A, NavIC IRNSS, PSLV-C37*).
+
+### 2. 🛩️ Real-Time NACA Airfoil Wind Tunnel
 - **Simulation**: Generates real-time streamlines and flow vectors across **NACA 4412**, **NACA 2412**, and **NACA 0012** airfoils.
 - **Physics Equations**:
   - Thin Airfoil Theory: $C_L = 2\pi \cdot (\alpha - \alpha_0)$
