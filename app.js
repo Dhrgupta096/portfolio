@@ -1670,4 +1670,385 @@ document.addEventListener('DOMContentLoaded', () => {
 
     adjustTunnelCanvasSize();
     renderTunnelFrame();
+
+    // ======================================================================
+    // 11. CLEAN WORD-BY-WORD REVEALS, SCRUBBING & PROTO-MONO SCRAMBLE
+    // ======================================================================
+    const SCRAMBLE_GLYPHS = '0123456789/_#ΔΛΨ';
+
+    function scrambleTextElement(el) {
+        if (!el || el.dataset.scrambling === '1') return;
+        const original = el.dataset.origText || el.textContent;
+        el.dataset.origText = original;
+        el.dataset.scrambling = '1';
+        let step = 0;
+        const maxSteps = 14;
+        const timer = setInterval(() => {
+            step++;
+            const progress = step / maxSteps;
+            const revealCount = Math.floor(original.length * progress);
+            let out = '';
+            for (let i = 0; i < original.length; i++) {
+                const ch = original[i];
+                if (ch === ' ' || i < revealCount) {
+                    out += ch;
+                } else {
+                    out += SCRAMBLE_GLYPHS[Math.floor(Math.random() * SCRAMBLE_GLYPHS.length)];
+                }
+            }
+            el.textContent = out;
+            if (step >= maxSteps) {
+                clearInterval(timer);
+                el.textContent = original;
+                el.dataset.scrambling = '0';
+            }
+        }, 24);
+    }
+
+    // Split section titles into staggered word masks
+    document.querySelectorAll('.section-title').forEach(titleEl => {
+        const text = titleEl.textContent.trim();
+        const wordsArr = text.split(/\s+/);
+        titleEl.innerHTML = wordsArr.map((w, idx) =>
+            `<span class="aevion-word-mask"><span class="aevion-word" style="--word-delay:${idx * 55}ms">${w}</span></span>`
+        ).join(' ');
+    });
+
+    // Split narrative paragraphs into scroll-scrubbed words
+    const scrubContainers = [];
+    document.querySelectorAll('.hero-desc, .card-desc').forEach(descEl => {
+        if (descEl.querySelector('*')) return;
+        const wordsArr = descEl.textContent.trim().split(/\s+/);
+        descEl.innerHTML = wordsArr.map(w => `<span class="aevion-scrub-word">${w}</span>`).join(' ');
+        scrubContainers.push({
+            el: descEl,
+            spans: Array.from(descEl.querySelectorAll('.aevion-scrub-word'))
+        });
+    });
+
+    const wordRevealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const title = entry.target.querySelector('.section-title');
+                if (title) title.classList.add('aevion-revealed');
+                const num = entry.target.querySelector('.section-num');
+                if (num) scrambleTextElement(num);
+            }
+        });
+    }, { threshold: 0.18 });
+
+    document.querySelectorAll('.section-header').forEach(h => wordRevealObserver.observe(h));
+
+    document.querySelectorAll('.nav-link, .section-num').forEach(el => {
+        el.addEventListener('mouseenter', () => scrambleTextElement(el));
+    });
+
+    function updateScrubbedWords() {
+        const vh = window.innerHeight || 800;
+        scrubContainers.forEach(item => {
+            const rect = item.el.getBoundingClientRect();
+            const raw = (vh * 0.92 - rect.top) / (vh * 0.48 + rect.height * 0.5);
+            const progress = Math.max(0, Math.min(1, raw));
+            const total = item.spans.length;
+            item.spans.forEach((sp, i) => {
+                const wordThreshold = i / Math.max(1, total);
+                const local = Math.max(0, Math.min(1, (progress - wordThreshold * 0.65) / 0.35));
+                const op = (0.28 + local * 0.72).toFixed(2);
+                const y = ((1 - local) * 4).toFixed(1);
+                sp.style.setProperty('--scrub-opacity', op);
+                sp.style.setProperty('--scrub-y', `${y}px`);
+            });
+        });
+    }
+    window.addEventListener('scroll', updateScrubbedWords, { passive: true });
+    updateScrubbedWords();
+
+    // ======================================================================
+    // 12. 3D DRONE (drone.glb) EXACT 1038-FRAME FLIGHT & LANDING ANIMATION
+    // ======================================================================
+    const uavCanvas = document.getElementById('uav-drone-canvas');
+
+    if (uavCanvas && typeof THREE !== 'undefined') {
+        // Exact constants from drone.riotters.com (chunk edf0036d357232b2.js)
+        const DRONE_CONST = {
+            TOTAL_FRAMES: 1038,
+            FPS: 30,
+            REVEAL_START_FRAME: 184,
+            REVEAL_FRAMES: 196,
+            REVEAL_DURATION_MS: 1100,
+            LANDING_END_FRAME: 995,
+            LERP_FACTOR: 0.03,
+            PROPELLER_SPEED: 75.4,
+            FLOAT_AMPLITUDE: 1.0,
+            FLOAT_FREQUENCY: 0.3,
+            GIMBAL_YAW_RAD: (60 * Math.PI) / 180,
+            GIMBAL_PITCH_RAD: Math.PI * 0.2,
+            SPINNING_CW: ['FR_Motor_1', 'FR_Motor', 'RL_Motor'],
+            SPINNING_CCW: ['FL_Motor_1', 'RR_Motor_1'],
+            MOTOR_FLIP_DEG: { FL: 180, FR: 180, RL: 180, RR: 0 }
+        };
+
+        const uavRenderer = new THREE.WebGLRenderer({
+            canvas: uavCanvas,
+            alpha: true,
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        uavRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        uavRenderer.setSize(window.innerWidth, window.innerHeight);
+        uavRenderer.outputEncoding = THREE.sRGBEncoding;
+        uavRenderer.toneMapping = THREE.NeutralToneMapping || THREE.ACESFilmicToneMapping;
+        uavRenderer.toneMappingExposure = 1.2;
+
+        const uavScene = new THREE.Scene();
+        const uavCamera = new THREE.PerspectiveCamera(
+            26.99,
+            window.innerWidth / Math.max(1, window.innerHeight),
+            0.1,
+            2000
+        );
+
+        // Lighting matching drone.riotters.com DroneCanvas
+        uavScene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const keyLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
+        keyLight.position.set(5, 10, 7);
+        uavScene.add(keyLight);
+        const rimLight = new THREE.DirectionalLight(0xc8d8ff, 1.0);
+        rimLight.position.set(-5, -3, -5);
+        uavScene.add(rimLight);
+
+        // Load exact equirectangular environment map
+        const texLoader = new THREE.TextureLoader();
+        texLoader.load('assets/aevion/drone-env.jpg', (envTex) => {
+            envTex.mapping = THREE.EquirectangularReflectionMapping;
+            uavScene.environment = envTex;
+        });
+
+        let mixer = null;
+        let glbCamera = null;
+        let clipDuration = DRONE_CONST.TOTAL_FRAMES / DRONE_CONST.FPS;
+        let cwMotorNodes = [];
+        let ccwMotorNodes = [];
+        let gimbalYawNode = null;
+        let gimbalPitchNode = null;
+        let gimbalYawRestQuat = null;
+        let gimbalPitchRestQuat = null;
+
+        let revealStartTime = null;
+        let revealDone = false;
+        let currentFrame = DRONE_CONST.REVEAL_START_FRAME;
+        let targetMouseX = 0;
+        let targetMouseY = 0;
+        let smoothMouseX = 0;
+        let smoothMouseY = 0;
+
+        const Y_AXIS = new THREE.Vector3(0, 1, 0);
+        const X_AXIS = new THREE.Vector3(1, 0, 0);
+        const tempQuat = new THREE.Quaternion();
+
+        window.addEventListener('mousemove', (e) => {
+            targetMouseX = (e.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
+            targetMouseY = (e.clientY / Math.max(1, window.innerHeight)) * 2 - 1;
+        }, { passive: true });
+
+        // Apply exact MOTOR_FLIP_DEG quaternion fix from drone.riotters.com before mixer creation
+        function fixMotorQuaternionTracks(animations) {
+            const motorTrackMap = {
+                'FL_Motor_1.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.FL,
+                'FL_Motor.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.FL,
+                'FR_Motor_1.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.FR,
+                'FR_Motor.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.FR,
+                'RL_Motor_1.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.RL,
+                'RL_Motor.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.RL,
+                'RR_Motor_1.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.RR,
+                'RR_Motor.quaternion': DRONE_CONST.MOTOR_FLIP_DEG.RR
+            };
+            const qTrack = new THREE.Quaternion();
+            const qFlip = new THREE.Quaternion();
+
+            animations.forEach((clip) => {
+                clip.tracks.forEach((track) => {
+                    const deg = motorTrackMap[track.name];
+                    if (!deg) return;
+                    qFlip.setFromAxisAngle(Y_AXIS, (deg * Math.PI) / 180);
+                    const vals = track.values;
+                    for (let i = 0; i < vals.length; i += 4) {
+                        qTrack.set(vals[i], vals[i + 1], vals[i + 2], vals[i + 3]);
+                        qTrack.multiply(qFlip);
+                        vals[i] = qTrack.x;
+                        vals[i + 1] = qTrack.y;
+                        vals[i + 2] = qTrack.z;
+                        vals[i + 3] = qTrack.w;
+                    }
+                });
+            });
+        }
+
+        if (typeof THREE.GLTFLoader !== 'undefined' && typeof THREE.DRACOLoader !== 'undefined') {
+            const dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('assets/aevion/draco/');
+            const gltfLoader = new THREE.GLTFLoader();
+            gltfLoader.setDRACOLoader(dracoLoader);
+
+            gltfLoader.load('assets/aevion/drone.glb', (gltf) => {
+                const model = gltf.scene;
+
+                // Apply metallic/roughness environment intensity matching drone.riotters.com
+                model.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach((m) => {
+                            if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) {
+                                m.metalness = Math.min(m.metalness, 0.75);
+                                m.roughness = Math.max(m.roughness, 0.25);
+                                m.envMapIntensity = 1.6;
+                                m.needsUpdate = true;
+                            }
+                        });
+                    }
+                });
+
+                uavScene.add(model);
+
+                // Bind CW and CCW motor nodes
+                cwMotorNodes = DRONE_CONST.SPINNING_CW
+                    .map((name) => model.getObjectByName(name))
+                    .filter(Boolean);
+                ccwMotorNodes = DRONE_CONST.SPINNING_CCW
+                    .map((name) => model.getObjectByName(name))
+                    .filter(Boolean);
+
+                // Bind Gimbal nodes (Camera_leftRight & Camera__UPDOWN)
+                gimbalYawNode = model.getObjectByName('Camera_leftRight');
+                gimbalPitchNode = model.getObjectByName('Camera__UPDOWN');
+                if (gimbalYawNode) gimbalYawRestQuat = gimbalYawNode.quaternion.clone();
+                if (gimbalPitchNode) gimbalPitchRestQuat = gimbalPitchNode.quaternion.clone();
+
+                // Bind animated camera rig (Camera.001)
+                if (gltf.cameras && gltf.cameras.length > 0) {
+                    glbCamera = gltf.cameras[0];
+                }
+
+                // Fix motor quaternion tracks and start baked 1038-frame animation
+                if (gltf.animations && gltf.animations.length > 0) {
+                    fixMotorQuaternionTracks(gltf.animations);
+                    mixer = new THREE.AnimationMixer(model);
+                    clipDuration = gltf.animations[0].duration || clipDuration;
+                    gltf.animations.forEach((clip) => {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    });
+                    const initTime = (DRONE_CONST.REVEAL_START_FRAME / DRONE_CONST.TOTAL_FRAMES) * clipDuration;
+                    mixer.setTime(initTime);
+                    model.updateMatrixWorld(true);
+                }
+
+                revealStartTime = performance.now();
+            });
+        }
+
+        let propAngle = 0;
+        let lastFrameTime = performance.now();
+
+        function animateDrone(now) {
+            const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+            lastFrameTime = now;
+
+            if (mixer) {
+                const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+                const scrollProgress = Math.max(0, Math.min(1, window.scrollY / maxScroll));
+
+                // Target frame across the full 1038-frame flight & landing sequence
+                const scrollTargetFrame =
+                    DRONE_CONST.REVEAL_FRAMES +
+                    scrollProgress * (DRONE_CONST.LANDING_END_FRAME - DRONE_CONST.REVEAL_FRAMES);
+
+                if (!revealDone && revealStartTime !== null) {
+                    const elapsed = now - revealStartTime;
+                    const t = Math.min(1, elapsed / DRONE_CONST.REVEAL_DURATION_MS);
+                    const ease = 1 - Math.pow(1 - t, 3); // revealEase: 1 - (1 - e)^3
+                    currentFrame =
+                        DRONE_CONST.REVEAL_START_FRAME +
+                        ease * (scrollTargetFrame - DRONE_CONST.REVEAL_START_FRAME);
+                    if (t >= 1) {
+                        revealDone = true;
+                    }
+                } else {
+                    currentFrame += (scrollTargetFrame - currentFrame) * DRONE_CONST.LERP_FACTOR;
+                }
+
+                const clampedFrame = Math.max(0, Math.min(DRONE_CONST.TOTAL_FRAMES, currentFrame));
+                const animTime = Math.min(
+                    (clampedFrame / DRONE_CONST.TOTAL_FRAMES) * clipDuration,
+                    clipDuration - 0.001
+                );
+
+                mixer.setTime(animTime);
+                mixer.update(0);
+
+                // Spin CW and CCW motors at PROPELLER_SPEED (75.4 rad/s)
+                propAngle = (propAngle + dt * DRONE_CONST.PROPELLER_SPEED) % (Math.PI * 2);
+
+                tempQuat.setFromAxisAngle(Y_AXIS, propAngle);
+                for (let i = 0; i < cwMotorNodes.length; i++) {
+                    cwMotorNodes[i].quaternion.multiply(tempQuat);
+                }
+
+                tempQuat.setFromAxisAngle(Y_AXIS, -propAngle);
+                for (let i = 0; i < ccwMotorNodes.length; i++) {
+                    ccwMotorNodes[i].quaternion.multiply(tempQuat);
+                }
+
+                // Smooth gimbal cursor tracking
+                smoothMouseX += (targetMouseX - smoothMouseX) * 0.05;
+                smoothMouseY += (targetMouseY - smoothMouseY) * 0.05;
+
+                if (gimbalYawNode && gimbalYawRestQuat) {
+                    tempQuat.setFromAxisAngle(Y_AXIS, smoothMouseX * DRONE_CONST.GIMBAL_YAW_RAD);
+                    gimbalYawNode.quaternion.copy(gimbalYawRestQuat).multiply(tempQuat);
+                }
+                if (gimbalPitchNode && gimbalPitchRestQuat) {
+                    tempQuat.setFromAxisAngle(X_AXIS, smoothMouseY * DRONE_CONST.GIMBAL_PITCH_RAD);
+                    gimbalPitchNode.quaternion.copy(gimbalPitchRestQuat).multiply(tempQuat);
+                }
+
+                // Sync rendering camera with animated Camera.001 inside drone.glb
+                if (glbCamera) {
+                    glbCamera.updateWorldMatrix(true, false);
+                    glbCamera.getWorldPosition(uavCamera.position);
+                    glbCamera.getWorldQuaternion(uavCamera.quaternion);
+
+                    // Idle vertical hover float (FLOAT_FREQUENCY = 0.3 Hz, FLOAT_AMPLITUDE = 1.0)
+                    const tSec = now * 0.001;
+                    uavCamera.position.y +=
+                        Math.sin(tSec * DRONE_CONST.FLOAT_FREQUENCY * Math.PI * 2) *
+                        DRONE_CONST.FLOAT_AMPLITUDE;
+
+                    // Aspect-ratio FOV compensation from drone.riotters.com
+                    const w = window.innerWidth;
+                    const h = Math.max(1, window.innerHeight);
+                    if (glbCamera.fov) {
+                        const baseFovRad = THREE.MathUtils.degToRad(glbCamera.fov);
+                        const refHeight = Math.min(h, w / 1.5);
+                        const compFovRad = 2 * Math.atan((h / refHeight) * Math.tan(baseFovRad / 2));
+                        uavCamera.fov = THREE.MathUtils.radToDeg(compFovRad);
+                    }
+                    uavCamera.aspect = w / h;
+                    uavCamera.updateProjectionMatrix();
+                }
+
+                uavRenderer.render(uavScene, uavCamera);
+            }
+
+            requestAnimationFrame(animateDrone);
+        }
+
+        window.addEventListener('resize', () => {
+            uavCamera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
+            uavCamera.updateProjectionMatrix();
+            uavRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        requestAnimationFrame(animateDrone);
+    }
 });

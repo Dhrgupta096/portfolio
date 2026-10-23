@@ -1,17 +1,34 @@
 /* ==========================================================================
    Clean Technical Blueprint Aerospace Student Portfolio - Stylesheet
+   Upgraded with Aevion (drone.riotters.com) Typography, Shaders & 3D UAV Track
    ========================================================================== */
 
 /* Imports */
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
-/* CSS Variables (UI UX Pro Max Design System) */
+@font-face {
+    font-family: 'Switzer Variable';
+    src: url('assets/aevion/Switzer_Variable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Proto Mono';
+    src: url('assets/aevion/proto_mono_light.woff2') format('woff2');
+    font-weight: 300 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* CSS Variables (UI UX Pro Max + Aevion Design System) */
 :root {
-    --bg-paper: #f4f6fa;
+    --bg-paper: #eef0f4;
     --bg-surface: #ffffff;
-    --bg-grid: rgba(0, 91, 197, 0.04);
+    --bg-grid: rgba(0, 91, 197, 0.045);
     
-    --pencil-graphite: #1e293b;
+    --pencil-graphite: #141518;
     --pencil-grey: #475569;
     --pencil-light: #64748b;
     
@@ -21,6 +38,8 @@
     --blueprint-blue-glow: rgba(0, 91, 197, 0.25);
     --aero-cyan: #00b4d8;
     --aero-cyan-glow: rgba(0, 180, 216, 0.35);
+    --aevion-orange: #ff4d1c;
+    --aevion-teal: #57a2be;
     --blueprint-red: #d90429;
     --stall-amber: #f59e0b;
     --stall-red: #ef4444;
@@ -30,11 +49,11 @@
     --glass-shadow: 0 12px 36px -4px rgba(0, 91, 197, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
     --glass-shadow-hover: 0 20px 40px -4px rgba(0, 91, 197, 0.16), 0 8px 16px -2px rgba(0, 91, 197, 0.08);
     
-    --font-heading: 'Space Grotesk', -apple-system, sans-serif;
-    --font-body: 'Space Grotesk', -apple-system, sans-serif;
-    --font-mono: 'Fira Code', monospace;
+    --font-heading: 'Switzer Variable', 'Space Grotesk', -apple-system, sans-serif;
+    --font-body: 'Switzer Variable', 'Space Grotesk', -apple-system, sans-serif;
+    --font-mono: 'Proto Mono', 'Fira Code', monospace;
     
-    --border-pencil: 1px solid rgba(43, 54, 72, 0.16);
+    --border-pencil: 1px solid rgba(20, 21, 24, 0.14);
     --border-blue: 1px solid rgba(0, 91, 197, 0.22);
     --border-blue-dashed: 1px dashed rgba(0, 91, 197, 0.35);
     
@@ -1750,5 +1769,58 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     box-shadow: 0 0 0 4px rgba(255, 153, 51, 0.25), 0 0 12px rgba(255, 153, 51, 0.5);
 }
 
+/* ==========================================================================
+   3D DRONE LAYER & WORD REVEAL / SCRUB ANIMATIONS
+   ========================================================================== */
 
+/* 1. Word-by-Word Staggered Scroll Reveal & Scrub System */
+.aevion-word-mask {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding-bottom: 0.06em;
+    margin-right: 0.24em;
+}
 
+.aevion-word {
+    display: inline-block;
+    transform: translate3d(0, 108%, 0);
+    opacity: 0;
+    transition:
+        transform 0.78s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.58s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--word-delay, 0ms);
+    will-change: transform, opacity;
+}
+
+.aevion-revealed .aevion-word {
+    transform: translate3d(0, 0%, 0);
+    opacity: 1;
+}
+
+.aevion-scrub-word {
+    display: inline-block;
+    margin-right: 0.25em;
+    opacity: var(--scrub-opacity, 0.25);
+    transform: translate3d(0, var(--scrub-y, 4px), 0);
+    transition: opacity 0.14s linear, transform 0.2s ease-out, color 0.2s ease;
+}
+
+/* 2. Fixed 3D Drone Viewport Layer */
+#uav-flight-layer {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 42;
+    overflow: hidden;
+}
+
+#uav-drone-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
