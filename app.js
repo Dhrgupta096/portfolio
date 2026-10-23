@@ -868,7 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         polarCtx.stroke();
 
         // Draw the full performance curve line
-        polarCtx.strokeStyle = 'var(--blueprint-blue)';
+        polarCtx.strokeStyle = '#005bc5';
         polarCtx.lineWidth = 2;
         polarCtx.beginPath();
         for (let aoa = minAoA; aoa <= maxAoA; aoa += 0.5) {
@@ -886,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Dashed grid project guides
         polarCtx.setLineDash([3, 3]);
-        polarCtx.strokeStyle = 'var(--blueprint-red)';
+        polarCtx.strokeStyle = '#d90429';
         polarCtx.lineWidth = 1;
 
         // Line to vertical axis (CL)
@@ -903,20 +903,37 @@ document.addEventListener('DOMContentLoaded', () => {
         polarCtx.setLineDash([]); // Reset dash
 
         // Draw current operating point dot
-        polarCtx.fillStyle = 'var(--blueprint-red)';
+        polarCtx.fillStyle = '#d90429';
         polarCtx.beginPath();
         polarCtx.arc(curX, curY, 5, 0, Math.PI * 2);
         polarCtx.fill();
 
         // Label details near point
-        polarCtx.fillStyle = 'var(--pencil-graphite)';
+        polarCtx.fillStyle = '#141518';
         polarCtx.font = '10px monospace';
         polarCtx.textAlign = 'left';
         polarCtx.fillText(`[AoA: ${angleOfAttack}°, CL: ${currentCL.toFixed(2)}]`, curX + 8, curY - 5);
     }
 
+    let lastPolarAoA = null;
+    let lastPolarProfile = null;
+    let lastHudAoA = null;
+    let lastHudVel = null;
+    let lastHudProfile = null;
+    let isTunnelVisible = true;
+    let tunnelRafId = null;
+
+    const stallBadge = document.getElementById('stall-warning-badge');
+    const hudLd = document.getElementById('hud-ld-ratio');
+    const hudFlow = document.getElementById('hud-boundary-flow');
+    const hudQ = document.getElementById('hud-dyn-q');
+    const hudRe = document.getElementById('hud-reynolds');
+
     // Canvas Draw: Airfoil Profile and Streamlines
     function renderTunnelFrame() {
+        tunnelRafId = null;
+        if (!isTunnelVisible) return;
+
         tunnelCtx.clearRect(0, 0, tunnelCanvas.width, tunnelCanvas.height);
         
         const airfoilX = tunnelCanvas.width / 2 - 60;
@@ -927,71 +944,67 @@ document.addEventListener('DOMContentLoaded', () => {
         // Perform calculation: Lift & Drag Coefficients
         const params = getProfileParams();
         const cL = calculateLiftCoefficient(angleOfAttack, params);
-        
-        // Induced drag calculation + base drag profile
         let cD = params.cdZero + (cL * cL) / (Math.PI * 1.3);
-
         const isStalled = angleOfAttack > params.stallAoA || angleOfAttack < -params.stallAoA;
-        const stallBadge = document.getElementById('stall-warning-badge');
-        const hudLd = document.getElementById('hud-ld-ratio');
-        const hudFlow = document.getElementById('hud-boundary-flow');
-        const hudQ = document.getElementById('hud-dyn-q');
-        const hudRe = document.getElementById('hud-reynolds');
+        if (isStalled) cD += 0.085;
 
-        if (isStalled) {
-            cD += 0.085;
-            
-            tunnelStatus.textContent = 'WARNING: AIRFLOW STALL';
-            tunnelStatus.className = 'canvas-live-badge stall';
-            if (stallBadge) stallBadge.style.display = 'inline-flex';
-            
-            valCL.className = 'readout-val warning';
-            valCD.className = 'readout-val warning';
-            if (hudFlow) {
-                hudFlow.textContent = 'TURBULENT SEPARATION';
-                hudFlow.style.color = 'var(--stall-red)';
+        // Only mutate DOM HUD & Polar Plot when inputs actually change
+        if (lastHudAoA !== angleOfAttack || lastHudVel !== windVelocity || lastHudProfile !== wingProfile) {
+            lastHudAoA = angleOfAttack;
+            lastHudVel = windVelocity;
+            lastHudProfile = wingProfile;
+
+            if (isStalled) {
+                tunnelStatus.textContent = 'WARNING: AIRFLOW STALL';
+                tunnelStatus.className = 'canvas-live-badge stall';
+                if (stallBadge) stallBadge.style.display = 'inline-flex';
+                valCL.className = 'readout-val warning';
+                valCD.className = 'readout-val warning';
+                if (hudFlow) {
+                    hudFlow.textContent = 'TURBULENT SEPARATION';
+                    hudFlow.style.color = 'var(--stall-red)';
+                }
+            } else {
+                tunnelStatus.textContent = cL >= 0 ? 'LIFT GENERATED' : 'DOWNFORCE GENERATED';
+                tunnelStatus.className = 'canvas-live-badge';
+                if (stallBadge) stallBadge.style.display = 'none';
+                valCL.className = 'readout-val';
+                valCD.className = 'readout-val';
+                if (hudFlow) {
+                    hudFlow.textContent = 'LAMINAR FLOW';
+                    hudFlow.style.color = 'var(--aero-cyan)';
+                }
             }
-        } else {
-            tunnelStatus.textContent = cL >= 0 ? 'LIFT GENERATED' : 'DOWNFORCE GENERATED';
-            tunnelStatus.className = 'canvas-live-badge';
-            if (stallBadge) stallBadge.style.display = 'none';
-            
-            valCL.className = 'readout-val';
-            valCD.className = 'readout-val';
-            if (hudFlow) {
-                hudFlow.textContent = 'LAMINAR FLOW';
-                hudFlow.style.color = 'var(--aero-cyan)';
+
+            valCL.textContent = cL.toFixed(2);
+            valCD.textContent = cD.toFixed(3);
+
+            if (hudLd) {
+                const ldRatio = cD > 0 ? (cL / cD).toFixed(1) : '0.0';
+                hudLd.textContent = `${ldRatio} L/D`;
             }
-        }
-
-        // Update readouts values
-        valCL.textContent = cL.toFixed(2);
-        valCD.textContent = cD.toFixed(3);
-
-        // Update HUD metrics
-        if (hudLd) {
-            const ldRatio = cD > 0 ? (cL / cD).toFixed(1) : '0.0';
-            hudLd.textContent = `${ldRatio} L/D`;
-        }
-        if (hudQ) {
-            const dynQ = Math.round(0.5 * 1.225 * windVelocity * windVelocity);
-            hudQ.textContent = `${dynQ} Pa`;
-        }
-        if (hudRe) {
-            const reynoldsVal = ((1.225 * windVelocity * 0.13) / 1.81e-5 / 100000).toFixed(2);
-            hudRe.innerHTML = `${reynoldsVal} &times; 10<sup>5</sup>`;
+            if (hudQ) {
+                const dynQ = Math.round(0.5 * 1.225 * windVelocity * windVelocity);
+                hudQ.textContent = `${dynQ} Pa`;
+            }
+            if (hudRe) {
+                const reynoldsVal = ((1.225 * windVelocity * 0.13) / 1.81e-5 / 100000).toFixed(2);
+                hudRe.innerHTML = `${reynoldsVal} &times; 10<sup>5</sup>`;
+            }
         }
 
         // Draw background mesh grid lines inside tunnel visualizer
         tunnelCtx.strokeStyle = 'rgba(0, 91, 197, 0.015)';
         tunnelCtx.lineWidth = 1;
         const spacing = 20;
+        tunnelCtx.beginPath();
         for (let x = 0; x < tunnelCanvas.width; x += spacing) {
-            tunnelCtx.beginPath(); tunnelCtx.moveTo(x, 0); tunnelCtx.lineTo(x, tunnelCanvas.height); tunnelCtx.stroke();
+            tunnelCtx.moveTo(x, 0); tunnelCtx.lineTo(x, tunnelCanvas.height);
         }
         for (let y = 0; y < tunnelCanvas.height; y += spacing) {
-            tunnelCtx.beginPath(); tunnelCtx.moveTo(0, y); tunnelCtx.lineTo(tunnelCanvas.width, y); tunnelCtx.stroke();
+            tunnelCtx.moveTo(0, y); tunnelCtx.lineTo(tunnelCanvas.width, y);
         }
+        tunnelCtx.stroke();
 
         // Update & Render flow streamlines
         streamParticles.forEach(p => {
@@ -1012,7 +1025,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render Airfoil Shape
         tunnelCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        tunnelCtx.strokeStyle = 'var(--pencil-graphite)';
+        tunnelCtx.strokeStyle = '#141518';
         tunnelCtx.lineWidth = 2.0;
         tunnelCtx.beginPath();
         
@@ -1045,8 +1058,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Draw lift vector arrow
         if (Math.abs(cL) > 0.05) {
-            tunnelCtx.strokeStyle = isStalled ? 'var(--blueprint-red)' : 'var(--blueprint-blue)';
-            tunnelCtx.fillStyle = isStalled ? 'var(--blueprint-red)' : 'var(--blueprint-blue)';
+            tunnelCtx.strokeStyle = isStalled ? '#d90429' : '#005bc5';
+            tunnelCtx.fillStyle = isStalled ? '#d90429' : '#005bc5';
             tunnelCtx.lineWidth = 2.0;
 
             const arrowLength = cL * 55;
@@ -1070,11 +1083,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tunnelCtx.restore();
 
-        // Render secondary polar plot
-        renderPolarPlot(cL, params);
+        // Render secondary polar plot only when AoA or profile changes
+        if (lastPolarAoA !== angleOfAttack || lastPolarProfile !== wingProfile) {
+            lastPolarAoA = angleOfAttack;
+            lastPolarProfile = wingProfile;
+            renderPolarPlot(cL, params);
+        }
 
         tunnelTime++;
-        requestAnimationFrame(renderTunnelFrame);
+        tunnelRafId = requestAnimationFrame(renderTunnelFrame);
     }
 
     // Reset controls
@@ -1088,6 +1105,8 @@ document.addEventListener('DOMContentLoaded', () => {
             windVelocity = 30;
             txtAoA.textContent = '+4.0°';
             txtVelocity.textContent = '30 m/s';
+            lastPolarAoA = null;
+            lastHudAoA = null;
             initTunnelParticles();
         });
     }
@@ -1119,7 +1138,21 @@ document.addEventListener('DOMContentLoaded', () => {
         polarCanvas.width = polarCanvas.parentElement.clientWidth - 24;
         polarCanvas.height = 350;
         
+        lastPolarAoA = null;
         initTunnelParticles();
+    }
+
+    // Pause Wind Tunnel 2D canvas loop when off-screen
+    if (tunnelCanvas) {
+        const tunnelObs = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                isTunnelVisible = entry.isIntersecting;
+                if (isTunnelVisible && !tunnelRafId) {
+                    tunnelRafId = requestAnimationFrame(renderTunnelFrame);
+                }
+            });
+        }, { rootMargin: '150px' });
+        tunnelObs.observe(tunnelCanvas);
     }
 
     // ----------------------------------------------------------------------
@@ -1137,6 +1170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let isMerging = false;
         let mergeAlpha = 0;
         let orbitWords = [];
+        let isMergerVisible = false;
+        let mergerRafId = null;
+        let lastMergerState = null;
         
         const concepts = [
             "AERODYNAMICS", "ROCKETRY", "PROPULSION", "CAD", 
@@ -1168,31 +1204,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function updateMergerFrame() {
+            mergerRafId = null;
+            if (!isMergerVisible) return;
+
             mergerCtx.clearRect(0, 0, mergerCanvas.width, mergerCanvas.height);
             const cx = mergerCanvas.width / 2;
             const cy = mergerCanvas.height / 2;
 
             mergerCtx.strokeStyle = 'rgba(0, 91, 197, 0.015)';
             mergerCtx.lineWidth = 1;
+            mergerCtx.beginPath();
             for (let x = 0; x < mergerCanvas.width; x += 30) {
-                mergerCtx.beginPath(); mergerCtx.moveTo(x, 0); mergerCtx.lineTo(x, mergerCanvas.height); mergerCtx.stroke();
+                mergerCtx.moveTo(x, 0); mergerCtx.lineTo(x, mergerCanvas.height);
             }
             for (let y = 0; y < mergerCanvas.height; y += 30) {
-                mergerCtx.beginPath(); mergerCtx.moveTo(0, y); mergerCtx.lineTo(mergerCanvas.width, y); mergerCtx.stroke();
+                mergerCtx.moveTo(0, y); mergerCtx.lineTo(mergerCanvas.width, y);
             }
+            mergerCtx.stroke();
 
             if (isMerging) {
                 mergeAlpha += (1 - mergeAlpha) * 0.08;
-                if (mergerStatus) {
-                    mergerStatus.textContent = 'CONFLUX MERGING ACTIVE';
-                    mergerStatus.className = 'canvas-live-badge stall';
-                }
             } else {
                 mergeAlpha += (0 - mergeAlpha) * 0.08;
-                if (mergerStatus) {
-                    mergerStatus.textContent = 'ORBITING ACTIVE';
-                    mergerStatus.className = 'canvas-live-badge';
-                }
+            }
+
+            if (lastMergerState !== isMerging && mergerStatus) {
+                lastMergerState = isMerging;
+                mergerStatus.textContent = isMerging ? 'CONFLUX MERGING ACTIVE' : 'ORBITING ACTIVE';
+                mergerStatus.className = isMerging ? 'canvas-live-badge stall' : 'canvas-live-badge';
             }
 
             orbitWords.forEach(w => {
@@ -1264,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mergerCtx.fillText("STARTING DSU NEXT WEEK // DW-001", cx, cy + 28);
             }
 
-            requestAnimationFrame(updateMergerFrame);
+            mergerRafId = requestAnimationFrame(updateMergerFrame);
         }
 
         if (btnMergeAction) {
@@ -1298,65 +1337,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
         adjustMergerCanvasSize();
         initMergerOrbits();
-        updateMergerFrame();
+
+        const mergerObs = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                isMergerVisible = entry.isIntersecting;
+                if (isMergerVisible && !mergerRafId) {
+                    mergerRafId = requestAnimationFrame(updateMergerFrame);
+                }
+            });
+        }, { rootMargin: '150px' });
+        mergerObs.observe(mergerCanvas);
 
         window.addEventListener('resize', adjustMergerCanvasSize);
     }
 
     // ----------------------------------------------------------------------
-    // 10. Custom CAD Drafting Crosshair Cursor Logic
+    // 10. Custom CAD Drafting Crosshair Cursor Logic (GPU-Composited & Idle-Sleeping)
     // ----------------------------------------------------------------------
     const cadCursor = document.getElementById('cad-cursor');
-    if (cadCursor) {
+    if (cadCursor && window.matchMedia('(pointer: fine)').matches) {
         const cursorCoords = cadCursor.querySelector('.cursor-coords');
-        let mouseX = 0, mouseY = 0;
-        let curX = 0, curY = 0;
+        let mouseX = -100, mouseY = -100;
+        let curX = -100, curY = -100;
+        let lastCoordX = -999, lastCoordY = -999;
+        let cursorRafId = null;
+
+        function updateCursorFrame() {
+            curX += (mouseX - curX) * 0.22;
+            curY += (mouseY - curY) * 0.22;
+
+            cadCursor.style.transform = `translate3d(${curX.toFixed(1)}px, ${curY.toFixed(1)}px, 0) translate(-50%, -50%)`;
+            
+            const rx = Math.round(curX);
+            const ry = Math.round(curY);
+            if (cursorCoords && (rx !== lastCoordX || ry !== lastCoordY)) {
+                lastCoordX = rx;
+                lastCoordY = ry;
+                cursorCoords.textContent = `X: ${rx} // Y: ${ry}`;
+            }
+
+            if (Math.hypot(mouseX - curX, mouseY - curY) > 0.25) {
+                cursorRafId = requestAnimationFrame(updateCursorFrame);
+            } else {
+                cursorRafId = null;
+            }
+        }
 
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX;
             mouseY = e.clientY;
-        });
-
-        function updateCursorFrame() {
-            curX += (mouseX - curX) * 0.16;
-            curY += (mouseY - curY) * 0.16;
-
-            cadCursor.style.left = `${curX}px`;
-            cadCursor.style.top = `${curY}px`;
-            
-            if (cursorCoords) {
-                cursorCoords.textContent = `X: ${Math.round(curX)} // Y: ${Math.round(curY)}`;
+            if (!cursorRafId) {
+                cursorRafId = requestAnimationFrame(updateCursorFrame);
             }
+        }, { passive: true });
 
-            requestAnimationFrame(updateCursorFrame);
-        }
-        updateCursorFrame();
-
-        // Listen on interactives to trigger crosshair hovering expansion
-        function registerHoverListeners() {
-            const interactives = document.querySelectorAll('a, button, select, input, textarea, .project-link-spec, .filter-button, .slider-blueprint');
-            interactives.forEach(el => {
-                el.addEventListener('mouseenter', () => {
-                    cadCursor.classList.add('hovering');
-                });
-                el.addEventListener('mouseleave', () => {
-                    cadCursor.classList.remove('hovering');
-                });
-            });
-        }
-        registerHoverListeners();
-
-        // Re-run listener binders on filter triggers or modal popups
-        const filterButtons = document.querySelectorAll('.filter-button');
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                setTimeout(registerHoverListeners, 350);
-            });
-        });
+        // Event delegation for hover state (zero listener re-binding overhead)
+        const hoverSelector = 'a, button, select, input, textarea, .project-link-spec, .filter-button, .slider-blueprint';
+        document.addEventListener('mouseover', (e) => {
+            if (e.target && e.target.closest && e.target.closest(hoverSelector)) {
+                cadCursor.classList.add('hovering');
+            }
+        }, { passive: true });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target && e.target.closest && e.target.closest(hoverSelector)) {
+                cadCursor.classList.remove('hovering');
+            }
+        }, { passive: true });
     }
 
     // ----------------------------------------------------------------------
-    // 11. Interactive CAD Sketchpad (Geometric Draft Board)
+    // 11. Interactive CAD Sketchpad (Event-Driven Rendering — 0% CPU When Idle)
     // ----------------------------------------------------------------------
     const sketchpadCanvas = document.getElementById('cad-sketchpad-canvas');
     if (sketchpadCanvas) {
@@ -1373,13 +1423,30 @@ document.addEventListener('DOMContentLoaded', () => {
         let isMouseOverCanvas = false;
         let activeTool = selectTool ? selectTool.value : 'line';
         let isShiftPressed = false;
+        let sketchRafPending = false;
+
+        function scheduleSketchpadDraw() {
+            if (!sketchRafPending) {
+                sketchRafPending = true;
+                requestAnimationFrame(() => {
+                    sketchRafPending = false;
+                    drawSketchpadFrame();
+                });
+            }
+        }
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'Shift') isShiftPressed = true;
+            if (e.key === 'Shift') {
+                isShiftPressed = true;
+                if (isDrawing) scheduleSketchpadDraw();
+            }
         });
 
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'Shift') isShiftPressed = false;
+            if (e.key === 'Shift') {
+                isShiftPressed = false;
+                if (isDrawing) scheduleSketchpadDraw();
+            }
         });
 
         if (selectTool) {
@@ -1390,15 +1457,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sketchpadCanvas.addEventListener('mouseenter', () => {
             isMouseOverCanvas = true;
+            scheduleSketchpadDraw();
         });
 
         sketchpadCanvas.addEventListener('mouseleave', () => {
             isMouseOverCanvas = false;
-            isDrawing = false; // Safeguard if user releases mouse outside canvas
+            isDrawing = false;
             if (sketchpadStatus) {
                 sketchpadStatus.textContent = 'READY FOR CAD';
                 sketchpadStatus.className = 'canvas-live-badge';
             }
+            scheduleSketchpadDraw();
         });
 
         function getMousePos(e) {
@@ -1422,15 +1491,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 sketchpadStatus.textContent = 'DRAFTING GEOMETRY';
                 sketchpadStatus.className = 'canvas-live-badge stall';
             }
+            scheduleSketchpadDraw();
         });
 
         sketchpadCanvas.addEventListener('mousemove', (e) => {
             const pos = getMousePos(e);
             hoverX = pos.x;
             hoverY = pos.y;
-            if (!isDrawing) return;
-            curMouseX = pos.x;
-            curMouseY = pos.y;
+            if (isDrawing) {
+                curMouseX = pos.x;
+                curMouseY = pos.y;
+            }
+            scheduleSketchpadDraw();
         });
 
         sketchpadCanvas.addEventListener('mouseup', (e) => {
@@ -1463,6 +1535,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sketchpadStatus.textContent = 'DRAFT COMPLETED';
                 sketchpadStatus.className = 'canvas-live-badge';
             }
+            scheduleSketchpadDraw();
         });
 
         if (btnClear) {
@@ -1471,6 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (sketchpadStatus) {
                     sketchpadStatus.textContent = 'SHEET CLEARED';
                 }
+                scheduleSketchpadDraw();
             });
         }
 
@@ -1523,12 +1597,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sketchCtx.strokeStyle = 'rgba(0, 91, 197, 0.02)';
             sketchCtx.lineWidth = 1;
             const step = 20;
+            sketchCtx.beginPath();
             for (let x = 0; x < sketchpadCanvas.width; x += step) {
-                sketchCtx.beginPath(); sketchCtx.moveTo(x, 0); sketchCtx.lineTo(x, sketchpadCanvas.height); sketchCtx.stroke();
+                sketchCtx.moveTo(x, 0); sketchCtx.lineTo(x, sketchpadCanvas.height);
             }
             for (let y = 0; y < sketchpadCanvas.height; y += step) {
-                sketchCtx.beginPath(); sketchCtx.moveTo(0, y); sketchCtx.lineTo(sketchpadCanvas.width, y); sketchCtx.stroke();
+                sketchCtx.moveTo(0, y); sketchCtx.lineTo(sketchpadCanvas.width, y);
             }
+            sketchCtx.stroke();
 
             // Draw CAD cursor crosshairs overlay if hovering and not dragging
             if (isMouseOverCanvas && !isDrawing) {
@@ -1548,7 +1624,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             drawAirframeTemplate(cx, cy);
 
-            sketchCtx.strokeStyle = 'var(--pencil-graphite)';
+            sketchCtx.strokeStyle = '#141518';
             sketchCtx.lineWidth = 1.8;
             sketchCtx.fillStyle = 'rgba(43, 54, 72, 0.7)';
             sketchCtx.font = '9px Fira Code';
@@ -1560,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sketchCtx.lineTo(s.x2, s.y2);
                     sketchCtx.stroke();
 
-                    sketchCtx.fillStyle = 'var(--pencil-graphite)';
+                    sketchCtx.fillStyle = '#141518';
                     sketchCtx.beginPath(); sketchCtx.arc(s.x1, s.y1, 2.5, 0, Math.PI*2); sketchCtx.fill();
                     sketchCtx.beginPath(); sketchCtx.arc(s.x2, s.y2, 2.5, 0, Math.PI*2); sketchCtx.fill();
 
@@ -1578,7 +1654,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sketchCtx.arc(s.x1, s.y1, r, 0, Math.PI*2);
                     sketchCtx.stroke();
 
-                    sketchCtx.fillStyle = 'var(--pencil-graphite)';
+                    sketchCtx.fillStyle = '#141518';
                     sketchCtx.beginPath(); sketchCtx.arc(s.x1, s.y1, 2, 0, Math.PI*2); sketchCtx.fill();
 
                     sketchCtx.strokeStyle = 'rgba(43, 54, 72, 0.3)';
@@ -1597,8 +1673,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 let finalX2 = curMouseX;
                 let finalY2 = curMouseY;
 
-                sketchCtx.strokeStyle = 'var(--blueprint-blue)';
-                sketchCtx.fillStyle = 'var(--blueprint-blue)';
+                sketchCtx.strokeStyle = '#005bc5';
+                sketchCtx.fillStyle = '#005bc5';
                 sketchCtx.lineWidth = 1.5;
 
                 if (activeTool === 'line') {
@@ -1622,7 +1698,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sketchCtx.stroke();
                     sketchCtx.setLineDash([]);
 
-                    sketchCtx.strokeStyle = 'var(--blueprint-blue)';
+                    sketchCtx.strokeStyle = '#005bc5';
                     sketchCtx.beginPath();
                     sketchCtx.moveTo(startX, startY);
                     sketchCtx.lineTo(finalX2, finalY2);
@@ -1649,18 +1725,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     sketchCtx.fillText(`R: ${r.toFixed(0)}mm`, curMouseX + 10, curMouseY - 5);
                 }
             }
-
-            requestAnimationFrame(drawSketchpadFrame);
         }
 
         function adjustSketchpadCanvasSize() {
             sketchpadCanvas.width = sketchpadCanvas.parentElement.clientWidth - 24;
             sketchpadCanvas.height = 380;
+            scheduleSketchpadDraw();
         }
 
         adjustSketchpadCanvasSize();
-        drawSketchpadFrame();
-
         window.addEventListener('resize', adjustSketchpadCanvasSize);
     }
 
@@ -1714,16 +1787,30 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join(' ');
     });
 
-    // Split narrative paragraphs into scroll-scrubbed words
+    // Split narrative paragraphs into scroll-scrubbed words (only active when visible in viewport)
     const scrubContainers = [];
+    const scrubVisObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const idx = Number(entry.target.dataset.scrubIdx);
+            if (!Number.isNaN(idx) && scrubContainers[idx]) {
+                scrubContainers[idx].visible = entry.isIntersecting;
+            }
+        });
+    }, { rootMargin: '100px' });
+
     document.querySelectorAll('.hero-desc, .card-desc').forEach(descEl => {
         if (descEl.querySelector('*')) return;
         const wordsArr = descEl.textContent.trim().split(/\s+/);
         descEl.innerHTML = wordsArr.map(w => `<span class="aevion-scrub-word">${w}</span>`).join(' ');
+        const idx = scrubContainers.length;
+        descEl.dataset.scrubIdx = String(idx);
         scrubContainers.push({
             el: descEl,
-            spans: Array.from(descEl.querySelectorAll('.aevion-scrub-word'))
+            spans: Array.from(descEl.querySelectorAll('.aevion-scrub-word')),
+            visible: true,
+            lastProgress: -1
         });
+        scrubVisObserver.observe(descEl);
     });
 
     const wordRevealObserver = new IntersectionObserver((entries) => {
@@ -1743,24 +1830,33 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('mouseenter', () => scrambleTextElement(el));
     });
 
+    let scrubRafPending = false;
     function updateScrubbedWords() {
+        scrubRafPending = false;
         const vh = window.innerHeight || 800;
-        scrubContainers.forEach(item => {
+        for (let c = 0; c < scrubContainers.length; c++) {
+            const item = scrubContainers[c];
+            if (!item.visible) continue;
             const rect = item.el.getBoundingClientRect();
             const raw = (vh * 0.92 - rect.top) / (vh * 0.48 + rect.height * 0.5);
             const progress = Math.max(0, Math.min(1, raw));
+            if (Math.abs(progress - item.lastProgress) < 0.015) continue;
+            item.lastProgress = progress;
             const total = item.spans.length;
-            item.spans.forEach((sp, i) => {
+            for (let i = 0; i < total; i++) {
                 const wordThreshold = i / Math.max(1, total);
                 const local = Math.max(0, Math.min(1, (progress - wordThreshold * 0.65) / 0.35));
-                const op = (0.28 + local * 0.72).toFixed(2);
-                const y = ((1 - local) * 4).toFixed(1);
-                sp.style.setProperty('--scrub-opacity', op);
-                sp.style.setProperty('--scrub-y', `${y}px`);
-            });
-        });
+                const op = (0.3 + local * 0.7).toFixed(2);
+                item.spans[i].style.setProperty('--scrub-opacity', op);
+            }
+        }
     }
-    window.addEventListener('scroll', updateScrubbedWords, { passive: true });
+    window.addEventListener('scroll', () => {
+        if (!scrubRafPending) {
+            scrubRafPending = true;
+            requestAnimationFrame(updateScrubbedWords);
+        }
+    }, { passive: true });
     updateScrubbedWords();
 
     // ======================================================================
@@ -1794,7 +1890,8 @@ document.addEventListener('DOMContentLoaded', () => {
             antialias: true,
             powerPreference: 'high-performance'
         });
-        uavRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        // Cap pixelRatio at 1.5 to prevent 4x Retina fill-rate lag over fullscreen DOM
+        uavRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         uavRenderer.setSize(window.innerWidth, window.innerHeight);
         uavRenderer.outputEncoding = THREE.sRGBEncoding;
         uavRenderer.toneMapping = THREE.NeutralToneMapping || THREE.ACESFilmicToneMapping;
@@ -1825,6 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         let mixer = null;
+        let clipActions = [];
         let glbCamera = null;
         let clipDuration = DRONE_CONST.TOTAL_FRAMES / DRONE_CONST.FPS;
         let cwMotorNodes = [];
@@ -1841,10 +1939,25 @@ document.addEventListener('DOMContentLoaded', () => {
         let targetMouseY = 0;
         let smoothMouseX = 0;
         let smoothMouseY = 0;
+        let cachedMaxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
 
         const Y_AXIS = new THREE.Vector3(0, 1, 0);
         const X_AXIS = new THREE.Vector3(1, 0, 0);
         const tempQuat = new THREE.Quaternion();
+
+        function updateUavCameraProjection() {
+            const w = window.innerWidth;
+            const h = Math.max(1, window.innerHeight);
+            cachedMaxScroll = Math.max(1, document.documentElement.scrollHeight - h);
+            if (glbCamera && glbCamera.fov) {
+                const baseFovRad = THREE.MathUtils.degToRad(glbCamera.fov);
+                const refHeight = Math.min(h, w / 1.5);
+                const compFovRad = 2 * Math.atan((h / refHeight) * Math.tan(baseFovRad / 2));
+                uavCamera.fov = THREE.MathUtils.radToDeg(compFovRad);
+            }
+            uavCamera.aspect = w / h;
+            uavCamera.updateProjectionMatrix();
+        }
 
         window.addEventListener('mousemove', (e) => {
             targetMouseX = (e.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
@@ -1927,6 +2040,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Bind animated camera rig (Camera.001)
                 if (gltf.cameras && gltf.cameras.length > 0) {
                     glbCamera = gltf.cameras[0];
+                    updateUavCameraProjection();
                 }
 
                 // Fix motor quaternion tracks and start baked 1038-frame animation
@@ -1934,12 +2048,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     fixMotorQuaternionTracks(gltf.animations);
                     mixer = new THREE.AnimationMixer(model);
                     clipDuration = gltf.animations[0].duration || clipDuration;
-                    gltf.animations.forEach((clip) => {
+                    clipActions = gltf.animations.map((clip) => {
                         const action = mixer.clipAction(clip);
                         action.play();
+                        return action;
                     });
                     const initTime = (DRONE_CONST.REVEAL_START_FRAME / DRONE_CONST.TOTAL_FRAMES) * clipDuration;
-                    mixer.setTime(initTime);
+                    for (let i = 0; i < clipActions.length; i++) {
+                        clipActions[i].time = initTime;
+                    }
+                    mixer.update(0);
                     model.updateMatrixWorld(true);
                 }
 
@@ -1955,8 +2073,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastFrameTime = now;
 
             if (mixer) {
-                const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-                const scrollProgress = Math.max(0, Math.min(1, window.scrollY / maxScroll));
+                const scrollProgress = Math.max(0, Math.min(1, window.scrollY / cachedMaxScroll));
 
                 // Target frame across the full 1038-frame flight & landing sequence
                 const scrollTargetFrame =
@@ -1983,7 +2100,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     clipDuration - 0.001
                 );
 
-                mixer.setTime(animTime);
+                // Direct action time assignment avoids full mixer reset overhead
+                for (let i = 0; i < clipActions.length; i++) {
+                    clipActions[i].time = animTime;
+                }
                 mixer.update(0);
 
                 // Spin CW and CCW motors at PROPELLER_SPEED (75.4 rad/s)
@@ -2023,18 +2143,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     uavCamera.position.y +=
                         Math.sin(tSec * DRONE_CONST.FLOAT_FREQUENCY * Math.PI * 2) *
                         DRONE_CONST.FLOAT_AMPLITUDE;
-
-                    // Aspect-ratio FOV compensation from drone.riotters.com
-                    const w = window.innerWidth;
-                    const h = Math.max(1, window.innerHeight);
-                    if (glbCamera.fov) {
-                        const baseFovRad = THREE.MathUtils.degToRad(glbCamera.fov);
-                        const refHeight = Math.min(h, w / 1.5);
-                        const compFovRad = 2 * Math.atan((h / refHeight) * Math.tan(baseFovRad / 2));
-                        uavCamera.fov = THREE.MathUtils.radToDeg(compFovRad);
-                    }
-                    uavCamera.aspect = w / h;
-                    uavCamera.updateProjectionMatrix();
                 }
 
                 uavRenderer.render(uavScene, uavCamera);
@@ -2044,11 +2152,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.addEventListener('resize', () => {
-            uavCamera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
-            uavCamera.updateProjectionMatrix();
+            updateUavCameraProjection();
             uavRenderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         requestAnimationFrame(animateDrone);
     }
 });
+
